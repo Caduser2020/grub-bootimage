@@ -3,6 +3,9 @@ name = "grub-bootimage"
 version = "0.1.0"
 authors = ["Caduser2020 <51916507+Caduser2020@users.noreply.github.com>"]
 description = "Tool to create a bootable GRUB image from a multiboot2 binary."
+homepage = "https://github.com/Caduser2020/grub-bootimage/"
+repository = "https://github.com/Caduser2020/grub-bootimage/"
+readme = "README.md"
 license = "MIT/Apache-2.0"
 edition = "2018"
 
