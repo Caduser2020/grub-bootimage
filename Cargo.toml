@@ -1,0 +1,14 @@
+[package]
+name = "grub-bootimage"
+version = "0.1.0"
+authors = ["Caduser2020 <51916507+Caduser2020@users.noreply.github.com>"]
+description = "Tool to create a bootable GRUB image from a multiboot2 binary."
+license = "MIT/Apache-2.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.32"
+cargo_metadata = "0.10.1"
+json = "0.12.4"
