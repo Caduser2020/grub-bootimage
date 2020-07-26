@@ -43,6 +43,7 @@ pub fn main() -> Result<()> {
     let metadata = MetadataCommand::new().exec().unwrap();
     let target = metadata.target_directory.to_str().unwrap();
 
+    let sysroot = target.to_owned() + "/sysroot";
     let grub_out = target.to_owned() + "/sysroot/boot/grub";
     let kernel_out = target.to_owned() + "/sysroot/boot/kernel.bin";
     let iso_out = target.to_owned() + "/os.iso";
@@ -57,7 +58,7 @@ pub fn main() -> Result<()> {
     )?;
 
     let _output = process::Command::new("grub-mkrescue")
-        .args(&["-o", &iso_out])
+        .args(&["-o", &iso_out, &sysroot])
         .output()
         .expect("Failed to execute grub-mkrescue");
 
