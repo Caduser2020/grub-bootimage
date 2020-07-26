@@ -5,7 +5,7 @@ use std::{env, fs, path::PathBuf, process};
 pub fn main() -> Result<()> {
     let mut raw_args = env::args();
     
-    match raw_args.nth(1).as_deref() {
+    match raw_args.nth(2).as_deref() {
         Some("runner") => {},
         Some("--help") => {
             todo!()
