@@ -3,8 +3,10 @@ use cargo_metadata::MetadataCommand;
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process,
+    process::{Command, Stdio},
+    time::Duration,
 };
+use wait_timeout::ChildExt;
 
 mod config;
 
@@ -23,7 +25,7 @@ pub fn main() -> Result<()> {
     };
 
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
-    let mut cmd = process::Command::new(&cargo);
+    let mut cmd = Command::new(&cargo);
     cmd.arg("build");
     cmd.arg("--message-format").arg("json");
     let output = cmd
@@ -57,11 +59,10 @@ pub fn main() -> Result<()> {
     let cargo_toml = Path::new(&manifest_dir).join("Cargo.toml");
     let is_test = executables[0]
         .parent()
-        .ok_or_else(|| anyhow!("grub-bootimage: kernel binary has no parent"))?
+        .ok_or_else(|| anyhow!("kernel binary has no parent"))?
         .ends_with("deps");
 
-    let config =
-        config::read_config(&cargo_toml).context("grub-bootimage: Failed to read configuration")?;
+    let config = config::read_config(&cargo_toml).context("Failed to read configuration")?;
 
     let sysroot = target.join("sysroot");
     let iso_out = target.join("os.iso");
@@ -77,7 +78,7 @@ pub fn main() -> Result<()> {
             \tmultiboot2 /boot/kernel.bin\n\tboot\n}",
     )?;
 
-    let _output = process::Command::new("grub-mkrescue")
+    let _output = Command::new("grub-mkrescue")
         .args(&["-o", iso_out.to_str().unwrap(), sysroot.to_str().unwrap()])
         .output()
         .expect("Failed to execute grub-mkrescue");
@@ -91,11 +92,35 @@ pub fn main() -> Result<()> {
         extra_args.extend(args);
     }
 
-    let _output = process::Command::new("qemu-system-x86_64")
+    let mut output = Command::new("qemu-system-x86_64")
         .args(&["-cdrom", iso_out.to_str().unwrap()])
         .args(&extra_args)
-        .output()
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
         .expect("QEMU system-x86_64 failed");
+
+    let timeout = Duration::from_secs(config.test_timeout.into());
+    if is_test {
+        match output
+            .wait_timeout(timeout)
+            .context("Failed to wait with timeout")?
+        {
+            Some(exit_code) => {
+                if config.test_success_exit_code.unwrap_or(0)
+                    != exit_code.code().unwrap_or_else(|| 0)
+                {
+                    std::process::exit(exit_code.code().unwrap_or_else(|| 0));
+                }
+            }
+            None => {
+                output.kill().context("Failed to kill QEMU")?;
+                output.wait().context("Failed to wait for QEMU process")?;
+                return Err(anyhow!("Test timed out"));
+            }
+        }
+    }
 
     Ok(())
 }

@@ -1,6 +1,6 @@
 [package]
 name = "grub-bootimage"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Caduser2020 <51916507+Caduser2020@users.noreply.github.com>"]
 description = "Tool to create a bootable GRUB image from a multiboot2 binary."
 homepage = "https://github.com/Caduser2020/grub-bootimage/"
@@ -16,3 +16,4 @@ anyhow = "1.0.32"
 cargo_metadata = "0.11"
 json = "0.12.4"
 toml = "0.5"
+wait-timeout = "0.2.0"

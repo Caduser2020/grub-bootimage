@@ -12,6 +12,8 @@ pub struct Config {
     pub test_args: Option<Vec<String>>,
     /// The exit code considered a success in testing mode.
     pub test_success_exit_code: Option<i32>,
+    /// The amount of time to wait before giving up on QEMU.
+    pub test_timeout: u32,
 }
 
 impl Config {
@@ -20,6 +22,7 @@ impl Config {
             run_args: None,
             test_args: None,
             test_success_exit_code: None,
+            test_timeout: 300,
         }
     }
 }
@@ -59,6 +62,9 @@ pub fn read_config(cargo_toml: &PathBuf) -> Result<Config> {
             }
             ("test-args", Value::Array(array)) => {
                 config.test_args = Some(parse_config(array)?);
+            }
+            ("test-timeout", Value::Integer(timeout)) => {
+                config.test_timeout = timeout as u32;
             }
             ("test-success-exit-code", Value::Integer(exit_code)) => {
                 config.test_success_exit_code = Some(exit_code as i32);
