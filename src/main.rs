@@ -4,27 +4,25 @@ use std::{env, fs, path::PathBuf, process};
 
 pub fn main() -> Result<()> {
     let mut raw_args = env::args();
-    
+
     match raw_args.nth(2).as_deref() {
-        Some("runner") => {},
-        Some("--help") => {
-            todo!()
-        },
-        Some(any) => return Err(anyhow!(
-            "bootimage: Unrecognized option '{}'", any
-        )),
-        None => return Err(anyhow!(
-            "bootimage: No operation specified (use --help for help)"
-        ))
+        Some("runner") => {}
+        Some("--help") => todo!(),
+        Some(any) => return Err(anyhow!("bootimage: Unrecognized option '{}'", any)),
+        None => {
+            return Err(anyhow!(
+                "bootimage: No operation specified (use --help for help)"
+            ))
+        }
     };
 
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_owned());
     let mut cmd = process::Command::new(&cargo);
     cmd.arg("build");
     cmd.arg("--message-format").arg("json");
-    let output = cmd.output().map_err(|err| anyhow!(
-        "failed to execute kernel build with json: {}", err
-    ))?;
+    let output = cmd
+        .output()
+        .map_err(|err| anyhow!("failed to execute kernel build with json: {}", err))?;
     if !output.status.success() {
         return Err(anyhow!("kernel build failed"));
     }
@@ -33,8 +31,7 @@ pub fn main() -> Result<()> {
         .map_err(|_| anyhow!("Invalid UTF-8"))?
         .lines()
     {
-        let mut artifact = json::parse(line)
-            .map_err(|_| anyhow!("Invalid JSON"))?;
+        let mut artifact = json::parse(line).map_err(|_| anyhow!("Invalid JSON"))?;
         if let Some(executable) = artifact["executable"].take_string() {
             executables.push(PathBuf::from(executable));
         }
@@ -52,9 +49,9 @@ pub fn main() -> Result<()> {
     fs::create_dir_all(grub_out)?;
     fs::copy(executables[0].to_owned(), kernel_out)?;
     fs::write(
-        grub_cfg, 
+        grub_cfg,
         "set timeout=0\nset default=0\n\nmenuentry \"My OS\" {\n \
-            \tmultiboot2 /boot/kernel.bin\n\tboot\n}"
+            \tmultiboot2 /boot/kernel.bin\n\tboot\n}",
     )?;
 
     let _output = process::Command::new("grub-mkrescue")
