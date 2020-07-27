@@ -1,6 +1,12 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use cargo_metadata::MetadataCommand;
-use std::{env, fs, path::PathBuf, process};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process,
+};
+
+mod config;
 
 pub fn main() -> Result<()> {
     let mut raw_args = env::args();
@@ -43,14 +49,25 @@ pub fn main() -> Result<()> {
         }
     }
 
-    let metadata = MetadataCommand::new().exec().unwrap();
-    let target = metadata.target_directory.to_str().unwrap();
+    let cmd = MetadataCommand::new();
+    let metadata = cmd.exec().unwrap();
+    let target = metadata.target_directory;
+    let manifest_dir =
+        env::var("CARGO_MANIFEST_DIR").context("Failed to read CARGO_MANIFEST_DIR env var")?;
+    let cargo_toml = Path::new(&manifest_dir).join("Cargo.toml");
+    let is_test = executables[0]
+        .parent()
+        .ok_or_else(|| anyhow!("grub-bootimage: kernel binary has no parent"))?
+        .ends_with("deps");
 
-    let sysroot = target.to_owned() + "/sysroot";
-    let grub_out = target.to_owned() + "/sysroot/boot/grub";
-    let kernel_out = target.to_owned() + "/sysroot/boot/kernel.bin";
-    let iso_out = target.to_owned() + "/os.iso";
-    let grub_cfg = target.to_owned() + "/sysroot/boot/grub/grub.cfg";
+    let config =
+        config::read_config(&cargo_toml).context("grub-bootimage: Failed to read configuration")?;
+
+    let sysroot = target.join("sysroot");
+    let iso_out = target.join("os.iso");
+    let grub_out = sysroot.join("boot/grub");
+    let kernel_out = sysroot.join("boot/kernel.bin");
+    let grub_cfg = grub_out.join("grub.cfg");
 
     fs::create_dir_all(grub_out)?;
     fs::copy(executables[0].to_owned(), kernel_out)?;
@@ -61,12 +78,22 @@ pub fn main() -> Result<()> {
     )?;
 
     let _output = process::Command::new("grub-mkrescue")
-        .args(&["-o", &iso_out, &sysroot])
+        .args(&["-o", iso_out.to_str().unwrap(), sysroot.to_str().unwrap()])
         .output()
         .expect("Failed to execute grub-mkrescue");
 
+    let mut extra_args = Vec::new();
+    if is_test {
+        if let Some(args) = config.test_args {
+            extra_args.extend(args);
+        }
+    } else if let Some(args) = config.run_args {
+        extra_args.extend(args);
+    }
+
     let _output = process::Command::new("qemu-system-x86_64")
-        .args(&["-cdrom", &iso_out])
+        .args(&["-cdrom", iso_out.to_str().unwrap()])
+        .args(&extra_args)
         .output()
         .expect("QEMU system-x86_64 failed");
 
