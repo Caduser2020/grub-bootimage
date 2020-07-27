@@ -5,7 +5,7 @@ use std::{env, fs, path::PathBuf, process};
 pub fn main() -> Result<()> {
     let mut raw_args = env::args();
 
-    match raw_args.nth(2).as_deref() {
+    match raw_args.nth(1).as_deref() {
         Some("runner") => {}
         Some("--help") => todo!(),
         Some(any) => return Err(anyhow!("bootimage: Unrecognized option '{}'", any)),
@@ -27,13 +27,19 @@ pub fn main() -> Result<()> {
         return Err(anyhow!("kernel build failed"));
     }
     let mut executables = Vec::new();
-    for line in String::from_utf8(output.stdout)
-        .map_err(|_| anyhow!("Invalid UTF-8"))?
-        .lines()
-    {
-        let mut artifact = json::parse(line).map_err(|_| anyhow!("Invalid JSON"))?;
-        if let Some(executable) = artifact["executable"].take_string() {
-            executables.push(PathBuf::from(executable));
+
+    match raw_args.next().as_deref() {
+        Some(exe) => executables.push(PathBuf::from(exe)),
+        None => {
+            for line in String::from_utf8(output.stdout)
+                .map_err(|_| anyhow!("Invalid UTF-8"))?
+                .lines()
+            {
+                let mut artifact = json::parse(line).map_err(|_| anyhow!("Invalid JSON"))?;
+                if let Some(executable) = artifact["executable"].take_string() {
+                    executables.push(PathBuf::from(executable));
+                }
+            }
         }
     }
 
