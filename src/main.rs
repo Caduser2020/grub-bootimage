@@ -70,13 +70,22 @@ pub fn main() -> Result<()> {
     let kernel_out = sysroot.join("boot/kernel.bin");
     let grub_cfg = grub_out.join("grub.cfg");
 
+    let mut grub_config = String::new();
+
+    grub_config.push_str("set timeout=0\n");
+    grub_config.push_str("set default=0\n");
+    grub_config.push_str("menuentry \"My OS\" {\n");
+    grub_config.push_str("\tmultiboot2 /boot/kernel.bin\n");
+    if let Some(modules) = config.modules {
+        for module in modules {
+            grub_config.push_str(format!("\tmodule2 {}\n", module.as_str()).as_str());
+        }
+    }
+    grub_config.push_str("\tboot\n}");
+
     fs::create_dir_all(grub_out)?;
     fs::copy(executables[0].to_owned(), kernel_out)?;
-    fs::write(
-        grub_cfg,
-        "set timeout=0\nset default=0\n\nmenuentry \"My OS\" {\n \
-            \tmultiboot2 /boot/kernel.bin\n\tboot\n}",
-    )?;
+    fs::write(grub_cfg, grub_config)?;
 
     let _output = Command::new("grub-mkrescue")
         .args(&["-o", iso_out.to_str().unwrap(), sysroot.to_str().unwrap()])

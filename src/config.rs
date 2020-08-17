@@ -6,6 +6,8 @@ use toml::Value;
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct Config {
+    /// Modules to load with the kernel.
+    pub modules: Option<Vec<String>>,
     /// Extra arguments passed to QEMU in not testing mode.
     pub run_args: Option<Vec<String>>,
     /// Extra arguments passed to QEMU in testing mode.
@@ -19,6 +21,7 @@ pub struct Config {
 impl Config {
     fn new() -> Config {
         Config {
+            modules: None,
             run_args: None,
             test_args: None,
             test_success_exit_code: None,
@@ -57,6 +60,9 @@ pub fn read_config(cargo_toml: &PathBuf) -> Result<Config> {
 
     for (key, value) in metadata {
         match (key.as_str(), value.clone()) {
+            ("modules", Value::Array(array)) => {
+                config.modules = Some(parse_config(array)?);
+            }
             ("run-args", Value::Array(array)) => {
                 config.run_args = Some(parse_config(array)?);
             }
