@@ -54,6 +54,8 @@ pub fn main() -> Result<()> {
     let cmd = MetadataCommand::new();
     let metadata = cmd.exec().unwrap();
     let target = metadata.target_directory;
+    assert!(target.exists());
+
     let manifest_dir =
         env::var("CARGO_MANIFEST_DIR").context("Failed to read CARGO_MANIFEST_DIR env var")?;
     let cargo_toml = Path::new(&manifest_dir).join("Cargo.toml");
@@ -70,6 +72,11 @@ pub fn main() -> Result<()> {
     let kernel_out = sysroot.join("boot/kernel.bin");
     let grub_cfg = grub_out.join("grub.cfg");
 
+    // Create grub dir and copy executable
+    fs::create_dir_all(grub_out)?;
+    fs::copy(executables[0].to_owned(), kernel_out)?;
+
+    // Build grub config
     let mut grub_config = String::new();
 
     grub_config.push_str("set timeout=0\n");
@@ -78,18 +85,16 @@ pub fn main() -> Result<()> {
     grub_config.push_str("\tmultiboot2 /boot/kernel.bin\n");
     if let Some(modules) = config.modules {
         for module in modules {
-            let cwd = env::current_dir()?;
+            let cwd = env::current_dir().context("Cannot access current directory")?;
             let module_path = cwd.join(PathBuf::from(&module));
-            let grub_module_name = module_path.as_path().file_name().ok_or(anyhow!("Failed to get file name"))?.to_str();
+            let grub_module_name = module_path.as_path().file_name().ok_or_else(|| anyhow!("Failed to get file name"))?.to_str();
             let grub_module_path = grub_module_name.ok_or(anyhow!("Invalid utf-8"))?;
-            fs::copy(&module_path, sysroot.join(grub_module_path.clone()))?;
+            fs::copy(&module_path, sysroot.join(grub_module_path.clone())).context("Copying grub module")?;
             grub_config.push_str(format!("\tmodule2 /{}\n", grub_module_path).as_str());
         }
     }
     grub_config.push_str("\tboot\n}");
 
-    fs::create_dir_all(grub_out)?;
-    fs::copy(executables[0].to_owned(), kernel_out)?;
     fs::write(grub_cfg, grub_config)?;
 
     let _output = Command::new("grub-mkrescue")
