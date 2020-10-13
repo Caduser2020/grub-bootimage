@@ -82,8 +82,6 @@ pub fn main() -> Result<()> {
             let module_path = cwd.join(PathBuf::from(&module));
             let grub_module_name = module_path.as_path().file_name().ok_or(anyhow!("Failed to get file name"))?.to_str();
             let grub_module_path = grub_module_name.ok_or(anyhow!("Invalid utf-8"))?;
-            dbg!(&module_path);
-            dbg!(sysroot.join(grub_module_path.clone()));
             fs::copy(&module_path, sysroot.join(grub_module_path.clone()))?;
             grub_config.push_str(format!("\tmodule2 /{}\n", grub_module_path).as_str());
         }
